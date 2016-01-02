@@ -19,7 +19,7 @@
 #include <string.h>
 
 #define DNUM 1000000
-#define THREAD_LEVEL 10
+#define THREAD_LEVEL 3
 
 //for sequential and parallel implementation
 void swap(double lyst[], int i, int j);
@@ -37,7 +37,7 @@ struct thread_data {
   int high;
   int level;
 };
-//thread_data should be thread-safe, since while lyst is 
+//thread_data should be thread-safe, since while lyst is
 //shared, [low, high] will not overlap among threads.
 
 //for the builtin qsort, for fun:
@@ -55,13 +55,22 @@ int main(int argc, char *argv[])
   struct timeval start, end;
   double diff;
 
-  srand(time(NULL));            //seed random
+  srand(47);            // fixed seed
 
   int NUM = DNUM;
-  if (argc == 2)                //user specified list size.
+  int TLEVEL = THREAD_LEVEL;
+
+  if (argc > 1)                //user specified list size.
   {
     NUM = atoi(argv[1]);
   }
+
+  if (argc > 2)                //user specified thread level.
+  {
+    TLEVEL = atoi(argv[2]);
+  }
+
+
   //Want to compare sorting on the same list,
   //so backup.
   double *lystbck = (double *) malloc(NUM * sizeof(double));
@@ -87,7 +96,8 @@ int main(int argc, char *argv[])
   //Compute time difference.
   diff = ((end.tv_sec * 1000000 + end.tv_usec)
           - (start.tv_sec * 1000000 + start.tv_usec)) / 1000000.0;
-  printf("Sequential quicksort took: %lf sec.\n", diff);
+//  printf("Sequential quicksort took: %lf sec.\n", diff);
+	printf("%lf ", diff);
 
 
 
@@ -97,7 +107,7 @@ int main(int argc, char *argv[])
   memcpy(lyst, lystbck, NUM * sizeof(double));
 
   gettimeofday(&start, NULL);
-  parallelQuicksort(lyst, NUM, THREAD_LEVEL);
+  parallelQuicksort(lyst, NUM, TLEVEL);
   gettimeofday(&end, NULL);
 
   if (!isSorted(lyst, NUM)) {
@@ -106,7 +116,8 @@ int main(int argc, char *argv[])
   //Compute time difference.
   diff = ((end.tv_sec * 1000000 + end.tv_usec)
           - (start.tv_sec * 1000000 + start.tv_usec)) / 1000000.0;
-  printf("Parallel quicksort took: %lf sec.\n", diff);
+  //printf("Parallel quicksort took: %lf sec.\n", diff);
+	printf("%lf ", diff);
 
 
 
@@ -122,7 +133,8 @@ int main(int argc, char *argv[])
   //Compute time difference.
   diff = ((end.tv_sec * 1000000 + end.tv_usec)
           - (start.tv_sec * 1000000 + start.tv_usec)) / 1000000.0;
-  printf("Built-in quicksort took: %lf sec.\n", diff);
+  //printf("Built-in quicksort took: %lf sec.\n", diff);
+	printf("%lf\n", diff);
 
   free(lyst);
   free(lystbck);
@@ -169,7 +181,7 @@ int partition(double lyst[], int lo, int hi)
 
 /*
 parallel quicksort top level:
-instantiate parallelQuicksortHelper thread, and that's 
+instantiate parallelQuicksortHelper thread, and that's
 basically it.
 */
 void parallelQuicksort(double lyst[], int size, int tlevel)
@@ -211,8 +223,8 @@ void parallelQuicksort(double lyst[], int size, int tlevel)
 
 /*
 parallelQuicksortHelper
--if the level is still > 0, then partition and make 
-parallelQuicksortHelper threads to solve the left and 
+-if the level is still > 0, then partition and make
+parallelQuicksortHelper threads to solve the left and
 right-hand sides, then quit. Otherwise, call sequential.
 */
 void *parallelQuicksortHelper(void *threadarg)
@@ -240,7 +252,7 @@ void *parallelQuicksortHelper(void *threadarg)
   //Now we partition our part of the lyst.
   mid = partition(my_data->lyst, my_data->low, my_data->high);
 
-  //At this point, we will create threads for the 
+  //At this point, we will create threads for the
   //left and right sides.  Must create their data args.
   struct thread_data thread_data_array[2];
 
