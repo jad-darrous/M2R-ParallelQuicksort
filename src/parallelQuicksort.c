@@ -18,10 +18,13 @@
 #include <sys/time.h>
 #include <string.h>
 
+#include <algorithm>    // std::shuffle
+
+
 #define DNUM 1000000
 #define THREAD_LEVEL 3
 
-#define BILLION 1E9
+#define REP 3
 
 //for sequential and parallel implementation
 void swap(double lyst[], int i, int j);
@@ -63,13 +66,14 @@ struct timer1 {
 
 struct timer2 {
 
-  // (CLOCK_PROCESS_CPUTIME_ID, CLOCK_REALTIME
+  #define BILLION 1E9
+  // CLOCK_PROCESS_CPUTIME_ID, CLOCK_REALTIME
   struct timespec _start, _end;
   void start() {
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &_start);
+    clock_gettime(CLOCK_REALTIME, &_start);
   }
   void end() {
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &_end);
+    clock_gettime(CLOCK_REALTIME, &_end);
   }
   double get_elapsed_time() {
     return (_end.tv_sec - _start.tv_sec)
@@ -77,6 +81,18 @@ struct timer2 {
   }
 };
 
+
+double run_seq_wrapper(double *lyst, int NUM, int TLEVEL) {
+  quicksort(lyst, NUM);
+}
+
+double run_par_wrapper(double *lyst, int NUM, int TLEVEL) {
+  parallelQuicksort(lyst, NUM, TLEVEL);
+}
+
+double run_libc_wrapper(double *lyst, int NUM, int TLEVEL) {
+  qsort(lyst, NUM, sizeof(double), compare_doubles);
+}
 
 /*
 Main method:
@@ -115,50 +131,42 @@ int main(int argc, char *argv[])
     lystbck[i] = 1.0 * rand() / RAND_MAX;
   }
 
-  //copy list.
-  memcpy(lyst, lystbck, NUM * sizeof(double));
-
-  //Sequential mergesort, and timing.
-  timer.start();
-  quicksort(lyst, NUM);
-  timer.end();
-
-  if (!isSorted(lyst, NUM)) {
-    printf("Oops, lyst did not get sorted by quicksort.\n");
+  //Init the array that specify the order in which we will
+  //call the sorting functions
+  int method[3*REP];
+  for (size_t i = 0; i < 3; i++) {
+    for (size_t j = 0; j < REP; j++) {
+      method[i*REP+j] = i;
+    }
   }
-  //Compute time difference.
-	printf("%lf ", timer.get_elapsed_time());
+  std::random_shuffle(method, method+3*REP);
 
+  double (*sorting_function[3])(double*, int, int) =
+   {run_seq_wrapper, run_par_wrapper, run_libc_wrapper};
 
+  //Holds the average time taken by each method
+  double avg[3] = {0,0,0};
 
-  //Now, parallel quicksort.
+  for (size_t i = 0; i < 3*REP; i++) {
+    memcpy(lyst, lystbck, NUM * sizeof(double));
 
-  //copy list.
-  memcpy(lyst, lystbck, NUM * sizeof(double));
+    timer.start();
+    sorting_function[method[i]](lyst, NUM, TLEVEL);
+    timer.end();
 
-  timer.start();
-  parallelQuicksort(lyst, NUM, TLEVEL);
-  timer.end();
+    if (!isSorted(lyst, NUM)) {
+      printf("Oops, lyst did not get sorted by method %d.\n", method[i]+1);
+      exit(1);
+    }
 
-  if (!isSorted(lyst, NUM)) {
-    printf("Oops, lyst did not get sorted by parallelQuicksort.\n");
+    avg[method[i]] += timer.get_elapsed_time();
   }
-  //Compute time difference.
-  printf("%lf ", timer.get_elapsed_time());
 
-
-
-  //Finally, built-in for reference:
-  memcpy(lyst, lystbck, NUM * sizeof(double));
-  timer.start();
-  qsort(lyst, NUM, sizeof(double), compare_doubles);
-  timer.end();
-
-  if (!isSorted(lyst, NUM)) {
-    printf("Oops, lyst did not get sorted by qsort.\n");
+  for (size_t i = 0; i < 3; i++) {
+    avg[i] /= REP;
   }
-  //Compute time difference.
-  printf("%lf ", timer.get_elapsed_time());
+
+  printf("%lf %lf %lf\n", avg[0], avg[1], avg[2]);
 
   free(lyst);
   free(lystbck);
