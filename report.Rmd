@@ -1,0 +1,56 @@
+---
+title: "Performance Evaluation of Parallel QuickSort implementation"
+author: "Jad"
+date: "January 6, 2016"
+output: html_document
+---
+
+# Intro
+In this document, the performance evaluation of three different implementations of the QuickSort algorithm. The document compare between:
+
+* Sequential implementation
+* Parallel implementation
+* Built-in implementation
+
+# Testbed
+For the hardware:
+```{sh, echo=FALSE}
+echo -n "Operating system: "
+uname -o
+echo -n "Distribution: "
+lsb_release -d | cut -d':' -f2- | xargs
+echo -n "Kernel version: "
+uname -r
+echo -n "Processor architecture: "
+uname -p
+cat /proc/cpuinfo | grep 'model name' | head -n 1 | cut -d':' -f2- | xargs
+echo -n "Processors #: "
+nproc
+echo -n "Main memory: "
+grep MemTotal /proc/meminfo | cut -d':' -f2- | xargs
+echo "Caches: "
+lscpu | grep 'cache'
+```
+
+For the software:
+
+```{sh, echo=FALSE}
+echo -n "Compiler version: "
+g++ --version | head -n 1
+```
+
+# Experiments
+
+We used a fixed seed for the random number generator to garantee that all replications are done on the same values.
+the list is a list of double precision floating point.
+for each run, we do  the measurements for each sorting function *three* times, in a random order, and take the average.
+we run the experiments on the size value from ${10}^{3}$ to ${10}^{6}$. And for the thread level: from `2` threads to `32` threads.
+for measuring time, the function `clock_gettime` is used to get the current system time.
+
+
+# Results
+
+For the built-in sorting function, it face a performance degradation on big sizes due to the comparision function, because it takes up to **100%** of the time.
+
+For the number of threads; using lot of them (more than 16) will not increase the performance, and may cause uncertaintety (lots of atlaiers). The optimal number of thread in the experiments is **8** which is exactly equals to `nb_processors * thread_per_processor`.  And it will outperforms other values for size larger than 500000.
+
