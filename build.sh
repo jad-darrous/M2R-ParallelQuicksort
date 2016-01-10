@@ -8,7 +8,7 @@ EXPR_FILE="${OUTPUT_DIRECTORY}/experiments.csv"
 RESULT_FILE="${OUTPUT_DIRECTORY}/experiments_results.csv"
 NB_THREADS=8
 
-Rscript ./scripts/gen_expr.R $EXPR_FILE
+Rscript ./scripts/gen_experiments.R $EXPR_FILE
 python ./scripts/run_experiments.py $EXPR_FILE $RESULT_FILE
 Rscript ./scripts/analysis.R $RESULT_FILE $OUTPUT_DIRECTORY $NB_THREADS
 mv Rplots.pdf $OUTPUT_DIRECTORY
