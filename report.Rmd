@@ -1,31 +1,29 @@
 ---
 title: "Performance Evaluation of Parallel QuickSort implementation"
-author: "Jad"
-date: "January 6, 2016"
+author: "Jad Darrous"
+date: "January 12, 2016"
 output: html_document
 ---
 
 # Intro
-In this document, the performance evaluation of three different implementations of the QuickSort algorithm. The document compare between:
+In this document, a performance evaluation of three different implementations of the QuickSort algorithm is presented. The document compare between:
 
 * Sequential implementation
-* Parallel implementation
-* Built-in implementation
+* Parallel implementation (POSIX Threads)
+* Built-in implementation (Libc)
 
 # Testbed
+
 For the hardware:
-```{sh, echo=FALSE}
-echo -n "Operating system: "
-uname -o
-echo -n "Distribution: "
-lsb_release -d | cut -d':' -f2- | xargs
-echo -n "Kernel version: "
-uname -r
+```{sh, echo=FALSE, cache=TRUE}
+echo -n "Processor: "
+cat /proc/cpuinfo | grep 'model name' | head -n 1 | cut -d':' -f2- | xargs
 echo -n "Processor architecture: "
 uname -p
-cat /proc/cpuinfo | grep 'model name' | head -n 1 | cut -d':' -f2- | xargs
-echo -n "Processors #: "
+echo -n "#Processors: "
 nproc
+echo -n "#cores per processor: "
+cat /proc/cpuinfo | grep cores |head -n 1 |  cut -d':' -f2- | xargs
 echo -n "Main memory: "
 grep MemTotal /proc/meminfo | cut -d':' -f2- | xargs
 echo "Caches: "
@@ -33,24 +31,155 @@ lscpu | grep 'cache'
 ```
 
 For the software:
-
-```{sh, echo=FALSE}
+```{sh, echo=FALSE, cache=TRUE}
+echo -n "Operating system: "
+uname -o
+echo -n "Distribution: "
+lsb_release -d | cut -d':' -f2- | xargs
+echo -n "Kernel version: "
+uname -r
 echo -n "Compiler version: "
 g++ --version | head -n 1
 ```
 
 # Experiments
 
-We used a fixed seed for the random number generator to garantee that all replications are done on the same values.
-the list is a list of double precision floating point.
-for each run, we do  the measurements for each sorting function *three* times, in a random order, and take the average.
-we run the experiments on the size value from ${10}^{3}$ to ${10}^{6}$. And for the thread level: from `2` threads to `32` threads.
-for measuring time, the function `clock_gettime` is used to get the current system time.
+* A fixed seed is used to guarantee that all replications are done on the same values.
+* The elements type of arrays are double-precision floating-point.
+* For measuring time, the function `clock_gettime` is used to get the current system time.
+* For each run, we do  the measurements for each sorting function *three* times, in a random order, and take the average.
+* The parameter space is:
+    + For the size: from 50k to 1M by step of 50k
+    + For the thread level: from 2 threads to 32 threads
 
+The design of experiments is:
+```
+fac.design(nfactors=2, replications=15, repeat.only=FALSE,
+                       blocks=1, randomize=TRUE, seed=24625,
+                       factor.names=list(size=(1:20)*50000, tlevel=c(2:6)))
+```
 
 # Results
 
-For the built-in sorting function, it face a performance degradation on big sizes due to the comparision function, because it takes up to **100%** of the time.
+```{r, echo=FALSE, cache=TRUE}
+csv_file = "/home/jad/dev/M2R-ParallelQuicksort/data/jad-K52Jc_2016-01-10_13:44/experiments_results.csv";
+nb_threads = 8
 
-For the number of threads; using lot of them (more than 16) will not increase the performance, and may cause uncertaintety (lots of atlaiers). The optimal number of thread in the experiments is **8** which is exactly equals to `nb_processors * thread_per_processor`.  And it will outperforms other values for size larger than 500000.
+allexp_df <- read.csv(csv_file, sep=" ", header=T, strip.white=TRUE)
 
+# renaming for simplicity
+names(allexp_df)[3:5] <- c("seq", "par", "blt")
+```
+
+First plot of the data, 8 threads is used in the parallel version:
+
+```{r, echo=FALSE, fig.align='center'}
+# analysis the changes in execution time in relation to the size,
+# for a specified number of thread in the parallel version
+df_size <- allexp_df[allexp_df$threads == nb_threads,]
+df_size <- df_size[df_size$size %% 200000 == 0,]
+
+library(ggplot2)
+
+p <- scale_colour_manual("Sorting", values = c("red", "blue", "purple"),
+                         labels = c("Sequential", "Parallel", "Libc"))
+
+o <- labs(title = "Measurements", y = "Time", x = "Size")
+
+library(reshape2)
+
+# the Libc data (col. 5) can be removed to get higher resolution when drawing
+df_size_melt <- melt(df_size[,c(1,3,4,5)], id="size")
+
+df_size_melt_par_seq <- df_size_melt[(df_size_melt$variable == 'par') | (df_size_melt$variable == 'seq'),]
+
+# Same as above but in an elegant way
+ggplot(df_size_melt, aes(size, value, colour=variable)) +
+  geom_point() +
+  p + o
+```
+
+The LibC is worse than the two others, and the gap increases with the increased size--, this mainly due to the comparison function calls, as it is shown by profiling--.
+
+Let's focus on the sequential and parallel implementations:
+
+```{r, echo=FALSE, fig.align='center'}
+# Same as above but without the LibC
+ggplot(df_size_melt_par_seq, aes(size, value, colour=variable)) +
+  geom_point() +
+  p + o
+```
+
+With the confidence interval:
+
+```{r, echo=FALSE, fig.align='center'}
+library(plyr)
+
+compute_ci <- function(df_size_melt, sorting) {
+  df <- df_size_melt[df_size_melt$variable == sorting,]
+  df_ci <- ddply(df, "size", function(x) {
+    mn <- mean(x$value)
+    sd <- sd(x$value)
+    se = 2*sd/sqrt(nrow(x))
+    data.frame(mn, sd, se, variable = sorting)
+  })
+  # return(list("df" = df, "ci" = df_ci))
+  return(df_ci)
+}
+
+df_size_melt_seq_ci <- compute_ci(df_size_melt, 'seq')
+df_size_melt_par_ci <- compute_ci(df_size_melt, 'par')
+
+# draw the CI
+ggplot(df_size_melt_par_seq, aes(size, value, colour=variable)) +
+  geom_point() +
+  geom_errorbar(data=df_size_melt_par_ci, aes(y=mn,ymin=mn-se,ymax=mn+se)) +
+  geom_errorbar(data=df_size_melt_seq_ci, aes(y=mn,ymin=mn-se,ymax=mn+se)) +
+  p + o
+```
+
+With the regression line:
+
+```{r, echo=FALSE, fig.align='center'}
+# Same as above but without the LibC
+ggplot(df_size_melt_par_seq, aes(size, value, colour=variable)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x+I(x^2), se = FALSE, size = 1) +
+  p + o
+```
+
+For array size over **300K**, the parallel version outperforms the sequential one
+
+
+## Analyzing the number of threads in the parallel verion
+
+```{r, echo=FALSE, fig.align='center'}
+# analysis the parallel version w.r.t number of threads.
+df_threads <- allexp_df[,c(1,2,4)]
+
+# Simple plot
+qplot (size, par, data=df_threads, color=factor(threads))
+
+# same as above + regression line
+# ggplot(df_threads, aes(size, par, color=factor(threads))) +
+#   geom_point() +
+#   # formula = y ~ poly(x, 2)
+#   geom_smooth(method = "lm", size = 1, formula = y ~ x+I(x^2), se = FALSE) +
+#   scale_colour_manual("#Threads", values = c("blue", "red", "purple", "green", "yellow"))
+```
+
+For a high number of threads (16 and 32) we notice a high variance and high number of outliers; this can be explained by the increasing number of cache misses.
+
+Just focusing on 4 and 8 threads:
+
+```{r, echo=FALSE, fig.align='center'}
+# same as above + regression line, just for 4 and 8
+df_threads_2_4 <- df_threads[(df_threads$threads == 4) | (df_threads$threads == 8),]
+ggplot(df_threads_2_4, aes(size, par, color=factor(threads))) +
+  geom_point() +
+  geom_smooth(method = "lm", size = 1, formula = y ~ poly(x, 2), se = FALSE) +
+  # geom_smooth(method = "lm", size = 1, formula = y ~ x+I(x^2), se = FALSE) +
+  scale_colour_manual("#Threads", values = c("red", "purple"))
+```
+
+The optimal number of thread in the experiments is **8** which is exactly equals to `nb_processors * nb_cores_per_processor`.  And it will outperforms other values for size larger than 500000.
