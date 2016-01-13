@@ -1,18 +1,18 @@
 ---
 title: "Performance Evaluation of Parallel QuickSort implementation"
 author: "Jad Darrous"
-date: "January 12, 2016"
+date: "January 13, 2016"
 output: html_document
 ---
 
-# Intro
+## Intro
 In this document, a performance evaluation of three different implementations of the QuickSort algorithm is presented. The document compare between:
 
 * Sequential implementation
 * Parallel implementation (POSIX Threads)
 * Built-in implementation (Libc)
 
-# Testbed
+## Testbed
 
 For the hardware:
 ```{sh, echo=FALSE, cache=TRUE}
@@ -42,11 +42,15 @@ echo -n "Compiler version: "
 g++ --version | head -n 1
 ```
 
-# Experiments
+## Software spec.
 
 * A fixed seed is used to guarantee that all replications are done on the same values.
 * The elements type of arrays are double-precision floating-point.
 * For measuring time, the function `clock_gettime` is used to get the current system time.
+* The optimization level of the compiler is set to `O3`.
+
+## Experiments 
+
 * For each run, we do  the measurements for each sorting function *three* times, in a random order, and take the average.
 * The parameter space is:
     + For the size: from 50k to 1M by step of 50k
@@ -59,10 +63,10 @@ fac.design(nfactors=2, replications=15, repeat.only=FALSE,
                        factor.names=list(size=(1:20)*50000, tlevel=c(2:6)))
 ```
 
-# Results
+## Results
 
 ```{r, echo=FALSE, cache=TRUE}
-csv_file = "/home/jad/dev/M2R-ParallelQuicksort/data/jad-K52Jc_2016-01-10_13:44/experiments_results.csv";
+csv_file = "data/last/experiments_results.csv";
 nb_threads = 8
 
 allexp_df <- read.csv(csv_file, sep=" ", header=T, strip.white=TRUE)
@@ -154,7 +158,7 @@ ggplot(df_size_melt_par_seq, aes(size, value, colour=variable)) +
 For array size over **300K**, the parallel version outperforms the sequential one
 
 
-## Analyzing the number of threads in the parallel verion
+### Analyzing the number of threads in the parallel verion
 
 ```{r, echo=FALSE, fig.align='center'}
 # analysis the parallel version w.r.t number of threads.
@@ -187,9 +191,22 @@ ggplot(df_threads_2_4, aes(size, par, color=factor(threads))) +
 
 For now it is not clear who is the winner.. let's go for larger arrays..
 
+The design of this experiments is:
+```
+Design.2 <- fac.design(nfactors=2, replications=5, repeat.only=FALSE,
+                      blocks=1, randomize=TRUE, seed=24625,
+                      factor.names=list(size=(1:10)*(10^6), tlevel=c(3:4)))
+```
+
+The results:
 ```{r, echo=FALSE, fig.align='center'}
-csv_file = "data/jad-K52Jc_2016-01-13_07:46/experiments_results.csv"
-df_tr48 <- read.csv(csv_file, sep=" ", header=T, strip.white=TRUE)
+csv_file_2 = "data/last/experiments_big_results.csv"
+
+# read the second expr.
+df_tr48 <- read.csv(csv_file_2, sep=" ", header=T, strip.white=TRUE)
+
+# renaming for simplicity
+names(df_tr48)[3] <- c("par")
 
 # qplot (size, par, data=df_tr48, color=factor(threads))
 
@@ -201,3 +218,7 @@ ggplot(df_tr48, aes(size, par, color=factor(threads))) +
 ```
 
 When the size goes large, the best number of threads tends to be **8** which is exactly equals to `nb_processors * nb_cores_per_processor`.
+
+## Conclusion
+
+The sequential and the parallel version should be used together to obtain the maximum performance for any input size. Selecting of the thread level should be done according the underlying system hadrware.
