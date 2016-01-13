@@ -68,6 +68,7 @@ struct timer2 {
 
   #define BILLION 1E9
   // CLOCK_PROCESS_CPUTIME_ID, CLOCK_REALTIME
+
   struct timespec _start, _end;
   void start() {
     clock_gettime(CLOCK_REALTIME, &_start);
@@ -131,6 +132,16 @@ int main(int argc, char *argv[])
     lystbck[i] = 1.0 * rand() / RAND_MAX;
   }
 
+
+#ifdef PROFILING
+    memcpy(lyst, lystbck, NUM * sizeof(double));
+    run_par_wrapper(lyst, NUM, TLEVEL);
+    exit(0);
+#endif
+
+
+#ifdef ALL_IMPL
+
   //Init the array that specify the order in which we will
   //call the sorting functions
   int method[3*REP];
@@ -167,6 +178,23 @@ int main(int argc, char *argv[])
   }
 
   printf("%lf %lf %lf\n", avg[0], avg[1], avg[2]);
+
+#else
+
+  double avg = 0;
+  for (size_t i = 0; i < REP; i++) {
+    memcpy(lyst, lystbck, NUM * sizeof(double));
+
+    timer.start();
+    parallelQuicksort(lyst, NUM, TLEVEL);
+    timer.end();
+
+    avg += timer.get_elapsed_time();
+  }
+  avg /= REP;
+  printf("%lf\n", avg);
+
+#endif
 
   free(lyst);
   free(lystbck);

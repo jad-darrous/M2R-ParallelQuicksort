@@ -12,6 +12,7 @@ NO_PRAYER_FOR_THE_WICKED = -w -O3
 WARNINGS =	$(NO_PRAYER_FOR_THE_WICKED)
 CFLAGS = $(WARNINGS) -pthread -lrt -std=c99 -pg
 # LIBS =
+DEFS = ${ARGS}
 CC=g++
 
 %: %.o
