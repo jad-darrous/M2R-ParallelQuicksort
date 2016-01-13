@@ -99,7 +99,7 @@ ggplot(df_size_melt, aes(size, value, colour=variable)) +
   p + o
 ```
 
-The LibC is worse than the two others, and the gap increases with the increased size--, this mainly due to the comparison function calls, as it is shown by profiling--.
+The LibC is worse than the two others, and the gap increases with the increased size. ~~This mainly due to the comparison function calls, as it is shown by profiling.~~
 
 Let's focus on the sequential and parallel implementations:
 
@@ -130,11 +130,14 @@ compute_ci <- function(df_size_melt, sorting) {
 df_size_melt_seq_ci <- compute_ci(df_size_melt, 'seq')
 df_size_melt_par_ci <- compute_ci(df_size_melt, 'par')
 
-# draw the CI
+df_size_melt_par_seq_mn <- ddply(df_size_melt_par_seq, c("size", "variable"), summarize,
+           mn = mean(value));
+
+# draw the CI with the mean
 ggplot(df_size_melt_par_seq, aes(size, value, colour=variable)) +
-  geom_point() +
-  geom_errorbar(data=df_size_melt_par_ci, aes(y=mn,ymin=mn-se,ymax=mn+se)) +
-  geom_errorbar(data=df_size_melt_seq_ci, aes(y=mn,ymin=mn-se,ymax=mn+se)) +
+  geom_line(data=df_size_melt_par_seq_mn, aes(y=mn, colour=variable)) +
+  geom_errorbar(data=df_size_melt_par_ci, aes(y=mn, ymin=mn-se, ymax=mn+se)) +
+  geom_errorbar(data=df_size_melt_seq_ci, aes(y=mn, ymin=mn-se, ymax=mn+se)) +
   p + o
 ```
 
@@ -182,4 +185,19 @@ ggplot(df_threads_2_4, aes(size, par, color=factor(threads))) +
   scale_colour_manual("#Threads", values = c("red", "purple"))
 ```
 
-The optimal number of thread in the experiments is **8** which is exactly equals to `nb_processors * nb_cores_per_processor`.  And it will outperforms other values for size larger than 500000.
+For now it is not clear who is the winner.. let's go for larger arrays..
+
+```{r, echo=FALSE, fig.align='center'}
+csv_file = "data/jad-K52Jc_2016-01-13_07:46/experiments_results.csv"
+df_tr48 <- read.csv(csv_file, sep=" ", header=T, strip.white=TRUE)
+
+# qplot (size, par, data=df_tr48, color=factor(threads))
+
+ggplot(df_tr48, aes(size, par, color=factor(threads))) +
+  geom_point() +
+  geom_smooth(method = "lm", size = 1, formula = y ~ poly(x, 2), se = FALSE) +
+  # geom_smooth(method = "lm", size = 1, formula = y ~ x+I(x^2), se = FALSE) +
+  scale_colour_manual("#Threads", values = c("red", "purple"))
+```
+
+When the size goes large, the best number of threads tends to be **8** which is exactly equals to `nb_processors * nb_cores_per_processor`.
