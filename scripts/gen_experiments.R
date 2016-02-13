@@ -2,17 +2,23 @@
 args <- commandArgs(trailingOnly = TRUE)
 expr1_out = args[1]
 expr2_out = args[2]
+expr3_out = args[3]
 rm(args)
 
 library(DoE.base)
 
 
-Design.1 <- fac.design(nfactors=2, replications=15, repeat.only=FALSE,
+Design.1 <- fac.design(nfactors=2, replications=30, repeat.only=FALSE,
+                     blocks=1, randomize=TRUE, seed=24625,
+                     factor.names=list(size=(1:50)*20, tlevel=c(2:6)))
+
+
+Design.2 <- fac.design(nfactors=2, replications=15, repeat.only=FALSE,
                        blocks=1, randomize=TRUE, seed=24625,
                        factor.names=list(size=(1:20)*50000, tlevel=c(2:6)))
 
 
-Design.2 <- fac.design(nfactors=2, replications=5, repeat.only=FALSE,
+Design.3 <- fac.design(nfactors=2, replications=5, repeat.only=FALSE,
                       blocks=1, randomize=TRUE, seed=24625,
                       factor.names=list(size=(1:10)*(10^6), tlevel=c(3:4)))
 
@@ -27,3 +33,4 @@ write_design_to_file <- function(design, fname) {
 
 write_design_to_file(Design.1, expr1_out)
 write_design_to_file(Design.2, expr2_out)
+write_design_to_file(Design.3, expr3_out)
