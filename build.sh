@@ -41,9 +41,14 @@ make -C src/ ARGS=""
 python ./scripts/run_experiments.py $EXPR_FILE_3 $RESULT_FILE_3
 
 
+# create a symbolic link to the last experiment results
+rm -f $FINAL_RESULTS_DIR
+ln -s $OUT_DIR_NAME $FINAL_RESULTS_DIR
+
+
 # generate the report
 if [ -x "$(command -v pandoc)" ]; then
-  # requires pandoc
+  # requires pandoc - gen standalone html file
   Rscript -e "library(rmarkdown); render('report.Rmd')"
   mv report.html $OUTPUT_DIRECTORY
 else
@@ -53,7 +58,3 @@ else
   Rscript -e "library(knitr); knit('report.Rmd')"
   mv report.md figure $OUTPUT_DIRECTORY
 fi
-
-# create a symbolic link to the last experiment results
-rm -f $FINAL_RESULTS_DIR
-ln -s $OUT_DIR_NAME $FINAL_RESULTS_DIR
