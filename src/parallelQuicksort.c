@@ -26,18 +26,20 @@
 
 #define REP 3
 
+
 //for sequential and parallel implementation
-void swap(double lyst[], int i, int j);
-int partition(double lyst[], int lo, int hi);
-void quicksortHelper(double lyst[], int lo, int hi);
-void quicksort(double lyst[], int size);
-int isSorted(double lyst[], int size);
+void swap(T lyst[], int i, int j);
+int partition(T lyst[], int lo, int hi);
+void quicksortHelper(T lyst[], int lo, int hi);
+void quicksort(T lyst[], int size);
+int isSorted(T lyst[], int size);
 
 //for parallel implementation
-void parallelQuicksort(double lyst[], int size, int tlevel);
+void parallelQuicksort(T lyst[], int size, int tlevel);
 void *parallelQuicksortHelper(void *threadarg) __attribute__ ((noreturn));
+
 struct thread_data {
-  double *lyst;
+  T *lyst;
   int low;
   int high;
   int level;
@@ -83,16 +85,16 @@ struct timer2 {
 };
 
 
-double run_seq_wrapper(double *lyst, int NUM, int TLEVEL) {
+double run_seq_wrapper(T *lyst, int NUM, int TLEVEL) {
   quicksort(lyst, NUM);
 }
 
-double run_par_wrapper(double *lyst, int NUM, int TLEVEL) {
+double run_par_wrapper(T *lyst, int NUM, int TLEVEL) {
   parallelQuicksort(lyst, NUM, TLEVEL);
 }
 
-double run_libc_wrapper(double *lyst, int NUM, int TLEVEL) {
-  qsort(lyst, NUM, sizeof(double), compare_doubles);
+double run_libc_wrapper(T *lyst, int NUM, int TLEVEL) {
+  qsort(lyst, NUM, sizeof(T), compare_doubles);
 }
 
 /*
@@ -104,7 +106,7 @@ Main method:
 */
 int main(int argc, char *argv[])
 {
-  struct timer2 timer;
+  struct timer1 timer;
 
   srand(47);            // fixed seed
 
@@ -124,17 +126,16 @@ int main(int argc, char *argv[])
 
   //Want to compare sorting on the same list,
   //so backup.
-  double *lystbck = (double *) malloc(NUM * sizeof(double));
-  double *lyst = (double *) malloc(NUM * sizeof(double));
+  T *lystbck = (T *) malloc(NUM * sizeof(T));
+  T *lyst = (T *) malloc(NUM * sizeof(T));
 
   //Populate random original/backup list.
   for (int i = 0; i < NUM; i++) {
     lystbck[i] = 1.0 * rand() / RAND_MAX;
   }
 
-
 #ifdef PROFILING
-    memcpy(lyst, lystbck, NUM * sizeof(double));
+    memcpy(lyst, lystbck, NUM * sizeof(T));
     run_par_wrapper(lyst, NUM, TLEVEL);
     exit(0);
 #endif
@@ -152,14 +153,14 @@ int main(int argc, char *argv[])
   }
   std::random_shuffle(method, method+3*REP);
 
-  double (*sorting_function[3])(double*, int, int) =
+  double (*sorting_function[3])(T*, int, int) =
    {run_seq_wrapper, run_par_wrapper, run_libc_wrapper};
 
   //Holds the average time taken by each method
   double avg[3] = {0,0,0};
 
   for (size_t i = 0; i < 3*REP; i++) {
-    memcpy(lyst, lystbck, NUM * sizeof(double));
+    memcpy(lyst, lystbck, NUM * sizeof(T));
 
     timer.start();
     sorting_function[method[i]](lyst, NUM, TLEVEL);
@@ -183,7 +184,7 @@ int main(int argc, char *argv[])
 
   double avg = 0;
   for (size_t i = 0; i < REP; i++) {
-    memcpy(lyst, lystbck, NUM * sizeof(double));
+    memcpy(lyst, lystbck, NUM * sizeof(T));
 
     timer.start();
     parallelQuicksort(lyst, NUM, TLEVEL);
@@ -201,12 +202,12 @@ int main(int argc, char *argv[])
   pthread_exit(NULL);
 }
 
-void quicksort(double lyst[], int size)
+void quicksort(T lyst[], int size)
 {
   quicksortHelper(lyst, 0, size - 1);
 }
 
-void quicksortHelper(double lyst[], int lo, int hi)
+void quicksortHelper(T lyst[], int lo, int hi)
 {
   if (lo >= hi)
     return;
@@ -215,18 +216,18 @@ void quicksortHelper(double lyst[], int lo, int hi)
   quicksortHelper(lyst, b + 1, hi);
 }
 
-void swap(double lyst[], int i, int j)
+void swap(T lyst[], int i, int j)
 {
-  double temp = lyst[i];
+  T temp = lyst[i];
   lyst[i] = lyst[j];
   lyst[j] = temp;
 }
 
-int partition(double lyst[], int lo, int hi)
+int partition(T lyst[], int lo, int hi)
 {
   int b = lo;
   int r = (int) (lo + (hi - lo) * (1.0 * rand() / RAND_MAX));
-  double pivot = lyst[r];
+  T pivot = lyst[r];
   swap(lyst, r, hi);
   for (int i = lo; i < hi; i++) {
     if (lyst[i] < pivot) {
@@ -244,7 +245,7 @@ parallel quicksort top level:
 instantiate parallelQuicksortHelper thread, and that's
 basically it.
 */
-void parallelQuicksort(double lyst[], int size, int tlevel)
+void parallelQuicksort(T lyst[], int size, int tlevel)
 {
   int rc;
   void *status;
@@ -354,7 +355,7 @@ void *parallelQuicksortHelper(void *threadarg)
 
 //check if the elements of lyst are in non-decreasing order.
 //one is success.
-int isSorted(double lyst[], int size)
+int isSorted(T lyst[], int size)
 {
   for (int i = 1; i < size; i++) {
     if (lyst[i] < lyst[i - 1]) {
@@ -369,8 +370,8 @@ int isSorted(double lyst[], int size)
 //from http://www.gnu.org/software/libc/manual/html_node/Comparison-Functions.html#Comparison-Functions
 int compare_doubles(const void *a, const void *b)
 {
-  const double *da = (const double *) a;
-  const double *db = (const double *) b;
+  const T *da = (const T *) a;
+  const T *db = (const T *) b;
 
   return (*da > *db) - (*da < *db);
 }
