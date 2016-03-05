@@ -58,3 +58,7 @@ else
   Rscript -e "library(knitr); knit('report.Rmd')"
   mv report.md figure $OUTPUT_DIRECTORY
 fi
+
+echo
+echo "Done!"
+echo "The report and be found in" $OUTPUT_DIRECTORY
