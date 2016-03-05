@@ -33,3 +33,14 @@ To install pandoc
 ```
 sudo apt-get install pandoc
 ```
+
+
+## Run everything
+
+A bash script is included to facilitate the whole process. It compiles the source code, generates the Design of Experiments, runs the experiments, analyzes the data and generates the final report.
+
+Just go to the project folder in you terminal and type
+```
+sh build.sh
+```
+then go and take a cup of tea :)
